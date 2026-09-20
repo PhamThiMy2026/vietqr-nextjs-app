@@ -1,42 +1,39 @@
-import { redirect } from "next/navigation";
+import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
+import PaymentStatus from '@/components/PaymentStatus';
+export const instant = false;
 
-import { createClient } from "@/lib/supabase/server";
-import { InfoIcon } from "lucide-react";
-import { FetchDataSteps } from "@/components/tutorial/fetch-data-steps";
-import { Suspense } from "react";
-
-async function UserDetails() {
+export default async function ProtectedPage() {
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.getClaims();
 
-  if (error || !data?.claims) {
-    redirect("/auth/login");
+  // Kiểm tra thông tin người dùng từ Supabase Auth
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  // Nếu chưa đăng nhập hoặc có lỗi kết nối -> Chuyển hướng về trang đăng nhập
+  if (error || !user) {
+    redirect('/sign-in');
   }
 
-  return JSON.stringify(data.claims, null, 2);
-}
-
-export default function ProtectedPage() {
   return (
-    <div className="flex-1 w-full flex flex-col gap-12">
-      <div className="w-full">
-        <div className="bg-accent text-sm p-3 px-5 rounded-md text-foreground flex gap-3 items-center">
-          <InfoIcon size="16" strokeWidth={2} />
-          This is a protected page that you can only see as an authenticated
-          user
-        </div>
-      </div>
+    <div className="flex-1 w-full flex flex-col gap-8 max-w-4xl px-3 py-12 mx-auto">
       <div className="flex flex-col gap-2 items-start">
-        <h2 className="font-bold text-2xl mb-4">Your user details</h2>
-        <pre className="text-xs font-mono p-3 rounded border max-h-32 overflow-auto">
-          <Suspense>
-            <UserDetails />
-          </Suspense>
-        </pre>
+        <h1 className="font-bold text-3xl mb-2">🔒 Trang Bảo Mật (Protected)</h1>
+        <p className="text-foreground/80">
+          Xin chào <span className="font-semibold text-primary">{user.email}</span>!
+        </p>
       </div>
-      <div>
-        <h2 className="font-bold text-2xl mb-4">Next steps</h2>
-        <FetchDataSteps />
+
+      {/* Gọi Component hiển thị lịch sử giao dịch Realtime */}
+      <PaymentStatus />
+
+      <div className="bg-card p-6 rounded-lg border">
+        <h2 className="font-bold text-lg mb-2">Thông tin tài khoản:</h2>
+        <pre className="bg-muted p-4 rounded text-xs overflow-auto">
+          {JSON.stringify(user, null, 2)}
+        </pre>
       </div>
     </div>
   );
