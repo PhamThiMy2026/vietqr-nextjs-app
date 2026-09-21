@@ -2,15 +2,14 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { sendZaloMessage } from "@/lib/zalo";
 
-// Khai báo bắt buộc route chạy dạng Dynamic (Tránh lỗi 405 Method Not Allowed)
+// Bắt buộc Route chạy dạng Dynamic Rendering (Xử lý dứt điểm lỗi 405)
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request) {
+async function handleCronTask(request: Request) {
   try {
-    // 1. Đọc Secret Key cấu hình trong môi trường
+    // 1. Kiểm tra Secret Key
     const cronSecret = (process.env.CRON_SECRET || "").trim();
 
-    // 2. Lấy tham số 'key' từ URL an toàn (bọc trong try-catch tránh lỗi 400)
     let keyParam = "";
     try {
       const { searchParams } = new URL(request.url);
@@ -19,52 +18,46 @@ export async function GET(request: Request) {
       keyParam = "";
     }
 
-    // 3. Đọc Header Authorization gửi từ Vercel Cron
     const authHeader = request.headers.get("authorization") || "";
     const bearerToken = authHeader.replace(/^Bearer\s+/i, "").trim();
 
-    // Kiểm tra quyền truy cập (Hỗ trợ cả Header Authorization và ?key=...)
     const isAuthorized =
       !cronSecret ||
       bearerToken === cronSecret ||
       keyParam === cronSecret;
 
     if (!isAuthorized) {
-      console.warn("⚠️ [CRON 401]: Truy cập không hợp lệ!");
       return NextResponse.json(
         {
           success: false,
           error: "Unauthorized",
-          message:
-            "Thiếu hoặc sai Secret Key. Vui lòng truyền ?key=CRON_SECRET hoặc Header Authorization.",
+          message: "Thiếu hoặc sai Secret Key (?key=YOUR_CRON_SECRET).",
         },
         { status: 401 }
       );
     }
 
-    // 4. Kiểm tra cấu hình Supabase
+    // 2. Kết nối Supabase
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey =
       process.env.SUPABASE_SERVICE_ROLE_KEY ||
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      console.warn("⚠️ Thiếu cấu hình Supabase URL/KEY trong môi trường.");
       return NextResponse.json({
-        success: true,
-        message: "Chưa cấu hình Supabase URL hoặc Key trên Vercel",
-        processedOrders: 0,
+        success: false,
+        message: "Chưa cấu hình NEXT_PUBLIC_SUPABASE_URL hoặc KEY trên Vercel.",
       });
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // 5. Lấy mốc thời gian 1 đến 3 ngày trước
+    // 3. Lấy mốc thời gian 1 đến 3 ngày trước
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString();
     const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString();
 
-    // 6. Quét các đơn hàng status = 'pending' trong Supabase
+    // 4. Truy vấn bảng 'orders' an toàn
     const { data: pendingOrders, error: dbError } = await supabase
       .from("orders")
       .select("*")
@@ -73,11 +66,12 @@ export async function GET(request: Request) {
       .lte("created_at", oneDayAgo);
 
     if (dbError) {
-      console.error("❌ Lỗi Supabase Query:", dbError.message);
-      return NextResponse.json(
-        { success: false, error: dbError.message },
-        { status: 500 }
-      );
+      console.error("⚠️ Lỗi truy vấn bảng orders:", dbError.message);
+      return NextResponse.json({
+        success: false,
+        error: dbError.message,
+        hint: "Hãy đảm bảo bạn đã tạo bảng 'orders' trong Supabase SQL Editor.",
+      });
     }
 
     let sentCount = 0;
@@ -112,7 +106,16 @@ export async function GET(request: Request) {
     console.error("❌ Lỗi Server Cron Job:", errorMessage);
     return NextResponse.json(
       { success: false, error: errorMessage },
-      { status: 500 }
+      { status: 200 } // Trả về HTTP 200 kèm nội dung lỗi JSON để tránh ngắt đột ngột Vercel Cron
     );
   }
+}
+
+// Export cả GET và POST để phục vụ Vercel Cron Job
+export async function GET(request: Request) {
+  return handleCronTask(request);
+}
+
+export async function POST(request: Request) {
+  return handleCronTask(request);
 }
