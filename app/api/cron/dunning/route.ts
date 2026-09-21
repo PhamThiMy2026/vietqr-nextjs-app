@@ -4,43 +4,40 @@ import { sendZaloMessage } from "@/lib/zalo";
 
 export async function POST(request: Request) {
   try {
-    // 1. Lấy Header xác thực (Ép kiểu String an toàn)
-    const customHeader = String(
+    // 1. Kiểm tra Secret Key từ Header (Hỗ trợ x-webhook-secret, x-sepay-api-key, Authorization)
+    const customHeader =
       request.headers.get("x-webhook-secret") ||
       request.headers.get("x-sepay-api-key") ||
       request.headers.get("x-api-key") ||
-      ""
-    ).trim();
+      "";
 
-    const authorizationHeader = String(
-      request.headers.get("authorization") || ""
-    ).trim();
+    const authorizationHeader = request.headers.get("authorization") || "";
 
-    // Tách token nếu SePay gửi dạng "Apikey KEY" hoặc "Bearer KEY"
+    // Tách token từ Authorization Header (nếu gửi dạng "Apikey KEY" hoặc "Bearer KEY")
     const bearerOrApikeyToken = authorizationHeader
       .replace(/^(Apikey|Bearer)\s+/i, "")
       .trim();
 
-    // Lấy Secret Key cấu hình trong biến môi trường Vercel
-    const envSecret = String(
+    // Lấy Secret Key cấu hình trong biến môi trường
+    const envSecret = (
       process.env.WEBHOOK_SECRET ||
       process.env.SEPAY_API_KEY ||
       ""
     ).trim();
 
     const receivedTokens = [
-      customHeader,
-      authorizationHeader,
+      customHeader.trim(),
+      authorizationHeader.trim(),
       bearerOrApikeyToken,
     ].filter(Boolean);
 
-    // Xác thực tính hợp lệ của Token
+    // Xác thực request
     const isAuthorized =
       envSecret !== "" &&
       receivedTokens.some((token) => token === envSecret);
 
     if (!isAuthorized) {
-      console.warn("⚠️ [WEBHOOK 401 REJECTED]: Secret Key không hợp lệ!");
+      console.warn("⚠️ [WEBHOOK 401 REJECTED]: Secret Key không hợp lệ hoặc chưa cấu hình!");
       return NextResponse.json(
         {
           success: false,
@@ -59,17 +56,17 @@ export async function POST(request: Request) {
     const content = String(body.content || body.description || "");
     const phone = String(body.phone || body.customerPhone || "");
 
-    // 3. Trích xuất mã đơn hàng (Truy cập match[0] để gọi .replace() an toàn)
+    // 3. Trích xuất mã đơn hàng chuẩn xác từ nội dung chuyển khoản
     let extractedOrderId = "";
     const match = content.match(/(DH|HD)[\s\-]*([a-zA-Z0-9]+)/i);
 
-    if (match && typeof match[0] === "string") {
-      // match[0] là CHUỖI KHỚP (VD: "DH1001" hoặc "HD-1002")
+    if (match && match[0]) {
+      // match[0] lấy chính xác chuỗi khớp (VD: "DH1001" hoặc "HD-1002")
       extractedOrderId = match[0].replace(/[\s\-]/g, "").toUpperCase();
     } else if (body.referenceCode) {
-      extractedOrderId = String(body.referenceCode).replace(/[\s\-]/g, "").toUpperCase();
+      extractedOrderId = String(body.referenceCode).trim();
     } else if (body.order_id) {
-      extractedOrderId = String(body.order_id).replace(/[\s\-]/g, "").toUpperCase();
+      extractedOrderId = String(body.order_id).trim();
     } else {
       extractedOrderId = content.trim() || `ORD_${Date.now()}`;
     }
@@ -127,6 +124,7 @@ export async function POST(request: Request) {
         "vi-VN"
       )} VNĐ) đã được thanh toán thành công.`;
 
+      // Thực thi gửi Zalo bất đồng bộ để tránh bị block HTTP Response
       try {
         await sendZaloMessage(phone, zaloMessage);
       } catch (zaloErr) {
