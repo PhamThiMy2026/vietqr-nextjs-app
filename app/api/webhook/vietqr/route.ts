@@ -2,153 +2,219 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { sendZaloMessage } from "@/lib/zalo";
 
+// Bắt buộc Route chạy dạng Dynamic
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request) {
   try {
-    // 1. Lấy Header xác thực (Ép kiểu String an toàn)
-    const customHeader = String(
-      request.headers.get("x-webhook-secret") ||
-      request.headers.get("x-sepay-api-key") ||
-      request.headers.get("x-api-key") ||
+    const body = await request.json();
+    console.log("📥 [WEBHOOK RECEIVED]:", JSON.stringify(body));
+
+    // 1. Chuẩn hóa dữ liệu đầu vào (Tương thích cả SePay và Casso)
+    let transaction = body;
+    // Nếu là Webhook từ Casso (dữ liệu nằm trong mảng body.data)
+    if (Array.isArray(body.data) && body.data.length > 0) {
+      transaction = body.data[0];
+    }
+
+    // Lấy số tiền và nội dung chuyển khoản
+    const amount = Number(
+      transaction.transferAmount ||
+      transaction.amount ||
+      transaction.creditAmount ||
+      0
+    );
+
+    const rawContent = String(
+      transaction.content ||
+      transaction.description ||
+      transaction.referenceCode ||
       ""
     ).trim();
 
-    const authorizationHeader = String(
-      request.headers.get("authorization") || ""
-    ).trim();
+    console.log(`💵 Số tiền: ${amount} VNĐ | Nội dung: "${rawContent}"`);
 
-    // Tách token nếu SePay gửi dạng "Apikey KEY" hoặc "Bearer KEY"
-    const bearerOrApikeyToken = authorizationHeader
-      .replace(/^(Apikey|Bearer)\s+/i, "")
-      .trim();
-
-    // Lấy Secret Key cấu hình trong biến môi trường Vercel
-    const envSecret = String(
-      process.env.WEBHOOK_SECRET ||
-      process.env.SEPAY_API_KEY ||
-      ""
-    ).trim();
-
-    const receivedTokens = [
-      customHeader,
-      authorizationHeader,
-      bearerOrApikeyToken,
-    ].filter(Boolean);
-
-    // Xác thực tính hợp lệ của Token
-    const isAuthorized =
-      envSecret !== "" &&
-      receivedTokens.some((token) => token === envSecret);
-
-    if (!isAuthorized) {
-      console.warn("⚠️ [WEBHOOK 401 REJECTED]: Secret Key không hợp lệ!");
+    if (!rawContent) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Unauthorized",
-          message: "Secret Key không hợp lệ.",
-        },
-        { status: 401 }
+        { success: false, message: "Nội dung chuyển khoản trống" },
+        { status: 200 }
       );
     }
 
-    // 2. Nhận và parse dữ liệu JSON từ Webhook
-    const body = await request.json();
-    console.log("--> [WEBHOOK BODY RECEIVED]:", body);
-
-    const amount = Number(body.amount || body.transferAmount || 0);
-    const content = String(body.content || body.description || "");
-    const phone = String(body.phone || body.customerPhone || "");
-
-    // 3. Trích xuất mã đơn hàng (Truy cập match[0] để gọi .replace() an toàn)
-    let extractedOrderId = "";
-    const match = content.match(/(DH|HD)[\s\-]*([a-zA-Z0-9]+)/i);
-
-    if (match && typeof match[0] === "string") {
-      // match[0] là CHUỖI KHỚP (VD: "DH1001" hoặc "HD-1002")
-      extractedOrderId = match[0].replace(/[\s\-]/g, "").toUpperCase();
-    } else if (body.referenceCode) {
-      extractedOrderId = String(body.referenceCode).replace(/[\s\-]/g, "").toUpperCase();
-    } else if (body.order_id) {
-      extractedOrderId = String(body.order_id).replace(/[\s\-]/g, "").toUpperCase();
-    } else {
-      extractedOrderId = content.trim() || `ORD_${Date.now()}`;
-    }
-
-    console.log(
-      `🔎 Mã đơn hàng trích xuất: "${extractedOrderId}" | Số tiền: ${amount}`
-    );
-
-    // 4. Kết nối Supabase
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    // Khởi tạo Supabase Client
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseKey =
       process.env.SUPABASE_SERVICE_ROLE_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      console.warn("⚠️ Thiếu cấu hình Supabase URL/KEY trong biến môi trường.");
-      return NextResponse.json({
-        success: true,
-        savedToDatabase: false,
-        message: "Chưa cấu hình Supabase URL hoặc Key trên Vercel",
-        order_id: extractedOrderId,
-        amount: amount,
-      });
-    }
-
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // 5. Lưu thông tin giao dịch vào bảng 'transactions'
-    const { error: dbError } = await supabase.from("transactions").insert([
-      {
-        amount: amount,
-        content: content,
-        order_id: extractedOrderId,
-        phone: phone,
-        status: "success",
-      },
-    ]);
+    // =========================================================================
+    // TRƯỜNG HỢP 1: THANH TOÁN MUA GÓI SAAS (Dogfooding - Tự nâng cấp gói 3s)
+    // =========================================================================
+    const saasMatch = rawContent.match(/SUB_(BASIC|PRO)_[A-Z0-9]+/i);
 
-    if (dbError) {
-      console.error("❌ Lỗi Supabase Insert:", dbError.message);
-      return NextResponse.json({
-        success: true,
-        savedToDatabase: false,
-        dbError: dbError.message,
-        order_id: extractedOrderId,
-        amount: amount,
-      });
-    }
+    if (saasMatch) {
+      const saasOrderId = saasMatch[0].toUpperCase();
+      console.log(`🚀 [DOGFOODING]: Xử lý nâng cấp gói SaaS cho mã: ${saasOrderId}`);
 
-    console.log("✅ Lưu vào Supabase thành công!");
+      // Dùng .maybeSingle() an toàn tuyệt đối, không làm crash server nếu không tìm thấy
+      const { data: subOrder, error: subError } = await supabase
+        .from("saas_subscriptions")
+        .select("*")
+        .eq("order_id", saasOrderId)
+        .maybeSingle();
 
-    // 6. Tự động gửi tin nhắn Zalo xác nhận nếu có số điện thoại
-    if (phone) {
-      const zaloMessage = `Cảm ơn bạn! Đơn hàng #${extractedOrderId} (${amount.toLocaleString(
-        "vi-VN"
-      )} VNĐ) đã được thanh toán thành công.`;
+      if (subError) {
+        console.error("❌ Lỗi tìm đơn saas_subscriptions:", subError.message);
+      }
 
-      try {
-        await sendZaloMessage(phone, zaloMessage);
-      } catch (zaloErr) {
-        console.error("❌ Lỗi khi gọi hàm sendZaloMessage:", zaloErr);
+      if (subOrder && subOrder.status === "pending") {
+        const isPro = subOrder.plan.toLowerCase() === "pro";
+        const newQuota = isPro ? 1500 : 300;
+        const expireDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+        // 1. Đổi trạng thái đơn nâng cấp -> 'success'
+        await supabase
+          .from("saas_subscriptions")
+          .update({ status: "success" })
+          .eq("order_id", saasOrderId);
+
+        // 2. Tự động nâng cấp Gói + Hạn ngạch + Gia hạn 30 ngày cho Shop
+        await supabase
+          .from("shops")
+          .update({
+            plan: subOrder.plan,
+            monthly_quota: newQuota,
+            plan_expires_at: expireDate,
+          })
+          .eq("shop_id", subOrder.shop_id);
+
+        // 3. Lấy số điện thoại shop để gửi tin Zalo xác nhận
+        const { data: shopInfo } = await supabase
+          .from("shops")
+          .select("phone")
+          .eq("shop_id", subOrder.shop_id)
+          .maybeSingle();
+
+        if (shopInfo?.phone) {
+          await sendZaloMessage(
+            shopInfo.phone,
+            `🎉 Cảm ơn bạn! Tài khoản shop [${subOrder.shop_id}] đã được nâng cấp thành công lên GÓI ${subOrder.plan.toUpperCase()} (${newQuota} đơn/tháng). Hạn dùng đến: ${new Date(expireDate).toLocaleDateString("vi-VN")}`
+          );
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: `Kích hoạt gói ${subOrder.plan} thành công cho shop ${subOrder.shop_id}!`,
+        });
       }
     }
 
+    // =========================================================================
+    // TRƯỜNG HỢP 2: KHÁCH HÀNG THANH TOÁN ĐƠN HÀNG CỦA CHỦ SHOP
+    // =========================================================================
+    const orderMatch = rawContent.match(/(DH|ORDER)[A-Z0-9]+/i);
+
+    if (!orderMatch) {
+      console.log("ℹ️ Không tìm thấy mã đơn hàng (DH.../ORDER...) trong nội dung.");
+      return NextResponse.json({
+        success: false,
+        message: "Nội dung chuyển khoản không chứa mã đơn hàng hợp lệ.",
+      });
+    }
+
+    const orderId = orderMatch[0].toUpperCase();
+    const shopId = "SHOP_DEMO"; // Mã shop mặc định (hoặc bóc tách từ hệ thống của bạn)
+
+    // 1. Kiểm tra Hạn ngạch (Quota) tháng này của Shop
+    const currentMonthYear = new Date().toISOString().slice(0, 7); // Dạng 'YYYY-MM'
+
+    const { data: shopInfo } = await supabase
+      .from("shops")
+      .select("*")
+      .eq("shop_id", shopId)
+      .maybeSingle();
+
+    const monthlyQuota = shopInfo?.monthly_quota || 300;
+
+    // Lấy số lượng đơn đã dùng trong tháng
+    const { data: usage } = await supabase
+      .from("shop_usage")
+      .select("*")
+      .eq("shop_id", shopId)
+      .eq("month_year", currentMonthYear)
+      .maybeSingle();
+
+    const currentCount = usage?.transaction_count || 0;
+
+    // Chặn nếu hết hạn ngạch gói
+    if (currentCount >= monthlyQuota) {
+      console.warn(`⚠️ [QUOTA EXCEEDED]: Shop ${shopId} đã dùng hết ${monthlyQuota} đơn/tháng!`);
+      return NextResponse.json({
+        success: false,
+        error: "Quota Exceeded",
+        message: `Shop đã sử dụng hết hạn ngạch (${monthlyQuota} đơn/tháng). Vui lòng nâng cấp gói!`,
+      });
+    }
+
+    // 2. Tìm đơn hàng trong bảng 'orders'
+    const { data: order, error: orderError } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("order_id", orderId)
+      .maybeSingle();
+
+    if (orderError) {
+      console.error("❌ Lỗi truy vấn đơn hàng:", orderError.message);
+    }
+
+    if (order) {
+      // Gạch nợ đơn hàng -> 'success'
+      await supabase
+        .from("orders")
+        .update({ status: "success" })
+        .eq("order_id", orderId);
+
+      // Tăng bộ đếm giao dịch tháng thêm +1
+      if (usage) {
+        await supabase
+          .from("shop_usage")
+          .update({ transaction_count: currentCount + 1 })
+          .eq("id", usage.id);
+      } else {
+        await supabase.from("shop_usage").insert({
+          shop_id: shopId,
+          month_year: currentMonthYear,
+          transaction_count: 1,
+        });
+      }
+
+      // Gửi tin nhắn Zalo cảm ơn khách hàng
+      if (order.phone) {
+        await sendZaloMessage(
+          order.phone,
+          `Cảm ơn bạn! Đơn hàng #${orderId} trị giá ${amount.toLocaleString("vi-VN")} VNĐ đã được xác nhận thanh toán thành công.`
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Đã gạch nợ thành công đơn hàng #${orderId}`,
+      });
+    }
+
     return NextResponse.json({
-      success: true,
-      savedToDatabase: true,
-      dbError: null,
-      order_id: extractedOrderId,
-      amount: amount,
-      message: "Lưu giao dịch thành công và đã kích hoạt gửi Zalo!",
+      success: false,
+      message: `Không tìm thấy đơn hàng #${orderId} trong hệ thống.`,
     });
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : String(error);
-    console.error("❌ Lỗi Server Webhook:", errorMessage);
+    const errMessage = error instanceof Error ? error.message : String(error);
+    console.error("❌ Lỗi Server Webhook:", errMessage);
+
+    // Luôn trả về 200 kèm JSON thông báo lỗi để SePay/Casso không gọi lại liên tục
     return NextResponse.json(
-      { success: false, error: errorMessage },
-      { status: 500 }
+      { success: false, error: errMessage },
+      { status: 200 }
     );
   }
 }
