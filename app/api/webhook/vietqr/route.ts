@@ -3,34 +3,71 @@ import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   try {
-    // 1. Xác thực bằng API Key / Header Authentication
-    const authHeader = request.headers.get("x-webhook-secret");
-    const webhookSecret = process.env.WEBHOOK_SECRET;
+    // 1. Đọc tất cả các dạng Header xác thực có thể có từ SePay
+    const customHeader =
+      request.headers.get("x-webhook-secret") ||
+      request.headers.get("x-sepay-api-key") ||
+      request.headers.get("x-api-key") ||
+      "";
 
-    // Kiểm tra xem Header gửi lên có khớp với biến WEBHOOK_SECRET trên Vercel không
-    if (!webhookSecret || authHeader !== webhookSecret) {
-      console.warn("⚠️ Webhook bị từ chối: Header x-webhook-secret không hợp lệ!");
+    const authorizationHeader = request.headers.get("authorization") || "";
+
+    // Cắt bớt tiền tố nếu SePay gửi dạng "Apikey MY_KEY" hoặc "Bearer MY_KEY"
+    const bearerOrApikeyToken = authorizationHeader
+      .replace(/^(Apikey|Bearer)\s+/i, "")
+      .trim();
+
+    // Lấy Secret Key cấu hình trên Vercel (loại bỏ khoảng trắng hai đầu)
+    const envSecret = (
+      process.env.WEBHOOK_SECRET ||
+      process.env.SEPAY_API_KEY ||
+      ""
+    ).trim();
+
+    // Tập hợp tất cả các Token nhận được từ phía SePay
+    const receivedTokens = [
+      customHeader.trim(),
+      authorizationHeader.trim(),
+      bearerOrApikeyToken,
+    ].filter(Boolean);
+
+    // Kiểm tra xem có bất kỳ Token nào gửi lên khớp với WEBHOOK_SECRET không
+    const isAuthorized =
+      envSecret !== "" &&
+      receivedTokens.some((token) => token === envSecret);
+
+    if (!isAuthorized) {
+      console.warn("⚠️ [WEBHOOK 401 REJECTED]: Secret Key không khớp!");
+      console.warn(
+        `👉 WEBHOOK_SECRET trên Vercel: "${envSecret || "CHƯA CẤU HÌNH"}"`
+      );
+      console.warn(`👉 Header 'x-webhook-secret' nhận được: "${request.headers.get("x-webhook-secret")}"`);
+      console.warn(`👉 Header 'authorization' nhận được: "${authorizationHeader}"`);
+
       return NextResponse.json(
-        { success: false, error: "Unauthorized: Invalid x-webhook-secret header" },
+        {
+          success: false,
+          error: "Unauthorized",
+          message:
+            "Secret Key không khớp. Vui lòng kiểm tra Vercel Logs để xem chi tiết.",
+        },
         { status: 401 }
       );
     }
 
-    // 2. Nhận dữ liệu Webhook gửi lên từ ngân hàng
+    // 2. Đọc dữ liệu JSON gửi từ SePay
     const body = await request.json();
-    console.log("--> [WEBHOOK RECEIVED]:", body);
+    console.log("--> [WEBHOOK BODY RECEIVED]:", body);
 
     const amount = Number(body.amount || body.transferAmount || 0);
     const content = String(body.content || body.description || "");
     const phone = String(body.phone || body.customerPhone || "");
 
-    // 3. Trích xuất mã đơn hàng chuẩn xác từ nội dung chuyển khoản (Fix lỗi String(match))
+    // 3. Trích xuất mã đơn hàng chuẩn xác (Lấy match[0] để loại bỏ lỗi dính dấu phẩy)
     let extractedOrderId = "";
-    // Tìm tiền tố DH hoặc HD theo sau là số hoặc chữ (VD: DH12345, HD-98765, DH 12345)
     const match = content.match(/(DH|HD)[\s\-]*([a-zA-Z0-9]+)/i);
 
     if (match && match[0]) {
-      // lấy match[0] để lấy chính xác chuỗi khớp (VD: "DH12345"), tránh bị dính dấu phẩy
       extractedOrderId = match[0].replace(/[\s\-]/g, "").toUpperCase();
     } else if (body.referenceCode) {
       extractedOrderId = String(body.referenceCode);
@@ -51,11 +88,11 @@ export async function POST(request: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      console.warn("⚠️ Thiếu cấu hình Supabase trong môi trường (.env)");
+      console.warn("⚠️ Thiếu cấu hình Supabase URL/KEY trong .env");
       return NextResponse.json({
         success: true,
         savedToDatabase: false,
-        message: "Chưa cấu hình NEXT_PUBLIC_SUPABASE_URL hoặc KEY",
+        message: "Chưa cấu hình Supabase URL hoặc Key trên Vercel",
         order_id: extractedOrderId,
         amount: amount,
       });
