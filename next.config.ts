@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  cacheComponents: true,
+  /* Xóa bỏ hoặc bỏ dòng output: 'export' tại đây */
 };
 
 export default nextConfig;
