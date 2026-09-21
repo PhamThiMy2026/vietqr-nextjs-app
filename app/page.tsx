@@ -1,58 +1,78 @@
-import { DeployButton } from "@/components/deploy-button";
-import { EnvVarWarning } from "@/components/env-var-warning";
-import { AuthButton } from "@/components/auth-button";
-import { Hero } from "@/components/hero";
-import { ThemeSwitcher } from "@/components/theme-switcher";
-import { ConnectSupabaseSteps } from "@/components/tutorial/connect-supabase-steps";
-import { SignUpUserSteps } from "@/components/tutorial/sign-up-user-steps";
-import { hasEnvVars } from "@/lib/utils";
+// app/page.tsx
 import Link from "next/link";
-import { Suspense } from "react";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <main className="min-h-screen flex flex-col items-center">
-      <div className="flex-1 w-full flex flex-col gap-20 items-center">
-        <nav className="w-full flex justify-center border-b border-b-foreground/10 h-16">
-          <div className="w-full max-w-5xl flex justify-between items-center p-3 px-5 text-sm">
-            <div className="flex gap-5 items-center font-semibold">
-              <Link href={"/"}>Next.js Supabase Starter</Link>
-              <div className="flex items-center gap-2">
-                <DeployButton />
-              </div>
-            </div>
-            {!hasEnvVars ? (
-              <EnvVarWarning />
-            ) : (
-              <Suspense>
-                <AuthButton />
-              </Suspense>
-            )}
-          </div>
-        </nav>
-        <div className="flex-1 flex flex-col gap-20 max-w-5xl p-5">
-          <Hero />
-          <main className="flex-1 flex flex-col gap-6 px-4">
-            <h2 className="font-medium text-xl mb-4">Next steps</h2>
-            {hasEnvVars ? <SignUpUserSteps /> : <ConnectSupabaseSteps />}
-          </main>
+    <main className="min-h-screen bg-slate-900 text-white flex flex-col justify-between p-6 md:p-12">
+      {/* Header / Navbar */}
+      <header className="max-w-6xl mx-auto w-full flex justify-between items-center py-4 border-b border-slate-800">
+        <div className="text-xl font-bold tracking-wider text-emerald-400">
+          VietQR AutoPay
+        </div>
+        <Link
+          href="/checkout/DH1001"
+          className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-semibold px-4 py-2 rounded-lg transition"
+        >
+          Thử nghiệm Demo
+        </Link>
+      </header>
+
+      {/* Hero Section */}
+      <section className="max-w-4xl mx-auto text-center my-16 space-y-6">
+        <div className="inline-block bg-emerald-500/10 text-emerald-400 text-sm font-medium px-4 py-1.5 rounded-full border border-emerald-500/20">
+          ⚡ Giải pháp Tự động hóa Thanh toán VietQR & Zalo 24/7
         </div>
 
-        <footer className="w-full flex items-center justify-center border-t mx-auto text-center text-xs gap-8 py-16">
-          <p>
-            Powered by{" "}
-            <a
-              href="https://supabase.com/?utm_source=create-next-app&utm_medium=template&utm_term=nextjs"
-              target="_blank"
-              className="font-bold hover:underline"
-              rel="noreferrer"
-            >
-              Supabase
-            </a>
+        <h1 className="text-3xl md:text-5xl font-extrabold leading-tight text-slate-100">
+          Tự động xác nhận chuyển khoản VietQR & Bắn tin nhắn Zalo cho khách trong{" "}
+          <span className="text-emerald-400">3 giây</span>
+        </h1>
+
+        <p className="text-lg text-slate-400 max-w-2xl mx-auto">
+          Không lo đọng vốn, không mất công tra sao kê thủ công. Giảm 99% thời gian xử lý đơn hàng và tự động hóa kịch bản chăm sóc/nhắc nợ qua Zalo.
+        </p>
+
+        <div className="pt-4 flex flex-col sm:flex-row justify-center gap-4">
+          <Link
+            href="/checkout/DH1001"
+            className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-lg px-8 py-3.5 rounded-xl transition shadow-lg shadow-emerald-500/20"
+          >
+            Tạo đơn hàng & Test thử ngay 🚀
+          </Link>
+        </div>
+      </section>
+
+      {/* Feature Grid */}
+      <section className="max-w-5xl mx-auto grid md:grid-cols-3 gap-6 my-12">
+        <div className="bg-slate-800/50 border border-slate-700/50 p-6 rounded-2xl">
+          <div className="text-3xl mb-3">📲</div>
+          <h3 className="text-xl font-semibold mb-2">VietQR Động</h3>
+          <p className="text-slate-400 text-sm">
+            Tự động khởi tạo mã QR chuyển khoản chính xác tới từng xu, tự điền nội dung đơn hàng.
           </p>
-          <ThemeSwitcher />
-        </footer>
-      </div>
+        </div>
+
+        <div className="bg-slate-800/50 border border-slate-700/50 p-6 rounded-2xl">
+          <div className="text-3xl mb-3">⚡</div>
+          <h3 className="text-xl font-semibold mb-2">Webhook Khóa Đơn 3s</h3>
+          <p className="text-slate-400 text-sm">
+            Xác thực thanh toán tức thì qua SePay / Casso, gạch nợ tự động trên Supabase Realtime.
+          </p>
+        </div>
+
+        <div className="bg-slate-800/50 border border-slate-700/50 p-6 rounded-2xl">
+          <div className="text-3xl mb-3">💬</div>
+          <h3 className="text-xl font-semibold mb-2">Tự động hóa Zalo</h3>
+          <p className="text-slate-400 text-sm">
+            Bắn tin nhắn xác nhận tức thì và tự động kích hoạt kịch bản nhắc nợ (Dunning Cron Job) 9:00 sáng.
+          </p>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="max-w-6xl mx-auto w-full text-center py-6 text-slate-500 text-sm border-t border-slate-800">
+        © 2026 VietQR AutoPay Solution. Powered by Next.js & Vercel.
+      </footer>
     </main>
   );
 }
