@@ -9,9 +9,7 @@ export default function PricingPage() {
   const [orderId, setOrderId] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
-  // =========================================================================
   // THÔNG TIN TÀI KHOẢN NGÂN HÀNG CỦA PHAM THI MY
-  // =========================================================================
   const MY_BANK_ID = "MB";
   const MY_ACCOUNT_NO = "0373695296";
   const MY_ACCOUNT_NAME = "PHAM THI MY";
@@ -21,11 +19,10 @@ export default function PricingPage() {
     setSelectedPlan(plan);
 
     const price = plan === "basic" ? 199000 : 399000;
-    // Sinh mã đơn nâng cấp dạng SUBPRO... hoặc SUBBASIC...
     const generatedOrderId = `SUB${plan.toUpperCase()}${Math.floor(1000 + Math.random() * 9000)}`;
     setOrderId(generatedOrderId);
 
-    // Tạo đường link VietQR tự động nhận tiền về STK MB 0373695296
+    // Link VietQR chuẩn mã nhận tiền
     const vietQrLink = `https://img.vietqr.io/image/${MY_BANK_ID}-${MY_ACCOUNT_NO}-compact2.png?amount=${price}&addInfo=${generatedOrderId}&accountName=${encodeURIComponent(
       MY_ACCOUNT_NAME
     )}`;
@@ -40,23 +37,21 @@ export default function PricingPage() {
         Chọn Gói Dịch Vụ VietQR & Zalo Automation
       </h1>
       <p className="text-slate-400 text-center mb-12 max-w-xl">
-        Dùng thử 7 ngày miễn phí. Nâng cấp để tự động hóa gạch nợ và bắn tin nhắn Zalo 24/7.
+        Nâng cấp gói dịch vụ để tự động hóa gạch nợ và bắn tin nhắn Zalo 24/7.
       </p>
 
-      {/* Bảng giá */}
       <div className="grid md:grid-cols-2 gap-8 max-w-4xl w-full">
         {/* Gói Cơ Bản */}
         <div className="bg-slate-800 border border-slate-700 p-8 rounded-2xl flex flex-col justify-between">
           <div>
             <h3 className="text-2xl font-bold mb-2">Gói Cơ Bản</h3>
-            <p className="text-slate-400 text-sm mb-6">Dành cho shop bán lẻ quy mô nhỏ</p>
+            <p className="text-slate-400 text-sm mb-6">Dành cho shop nhỏ</p>
             <div className="text-4xl font-black mb-6">
               199.000đ <span className="text-sm font-normal text-slate-400">/ tháng</span>
             </div>
             <ul className="space-y-3 text-sm text-slate-300 mb-8">
               <li>✅ Tối đa <b>300 giao dịch/tháng</b></li>
               <li>✅ Tự động gạch nợ 3 giây</li>
-              <li>✅ Bắn tin Zalo cảm ơn</li>
             </ul>
           </div>
           <button
@@ -74,14 +69,14 @@ export default function PricingPage() {
           </div>
           <div>
             <h3 className="text-2xl font-bold mb-2 text-emerald-400">Gói Pro</h3>
-            <p className="text-slate-400 text-sm mb-6">Dành cho shop bán hàng chuyên nghiệp</p>
+            <p className="text-slate-400 text-sm mb-6">Dành cho shop bán hàng lớn</p>
             <div className="text-4xl font-black mb-6">
               399.000đ <span className="text-sm font-normal text-slate-400">/ tháng</span>
             </div>
             <ul className="space-y-3 text-sm text-slate-300 mb-8">
               <li>🚀 Tối đa <b>1.500 giao dịch/tháng</b></li>
               <li>✅ Tự động gạch nợ 3 giây</li>
-              <li>💬 <b>Kịch bản Zalo Nhắc Nợ tự động</b></li>
+              <li>💬 <b>Zalo Nhắc Nợ tự động</b></li>
             </ul>
           </div>
           <button
@@ -93,13 +88,11 @@ export default function PricingPage() {
         </div>
       </div>
 
-      {/* Modal hiển thị mã VietQR */}
+      {/* Modal VietQR */}
       {selectedPlan && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
           <div className="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-md w-full text-center space-y-4">
-            <h3 className="text-xl font-bold">
-              Quét VietQR Kích Hoạt Gói {selectedPlan.toUpperCase()}
-            </h3>
+            <h3 className="text-xl font-bold">Quét VietQR Kích Hoạt Gói {selectedPlan.toUpperCase()}</h3>
             <p className="text-slate-400 text-sm">
               Mã đơn: <span className="text-emerald-400 font-mono font-bold">{orderId}</span>
             </p>
