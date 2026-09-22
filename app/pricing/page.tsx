@@ -11,8 +11,8 @@ export default function PricingPage() {
 
   // Điền thông tin tài khoản ngân hàng nhận tiền của BẠN
   const MY_BANK_ID = "MB";             // Tên ngân hàng của bạn (MB, VCB, Techcombank...)
-  const MY_ACCOUNT_NO = "09999999999";  // Số tài khoản ngân hàng của bạn
-  const MY_ACCOUNT_NAME = "NGUYEN VAN A"; // Tên chủ tài khoản
+  const MY_ACCOUNT_NO = "0373695296";  // Số tài khoản ngân hàng của bạn
+  const MY_ACCOUNT_NAME = "PHAM THI MY"; // Tên chủ tài khoản
 
   const handleSelectPlan = async (plan: "basic" | "pro") => {
     setLoading(true);
