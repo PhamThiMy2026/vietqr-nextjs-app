@@ -5,8 +5,13 @@ import { useParams } from "next/navigation";
 
 export default function CheckoutPage() {
   const params = useParams();
-  const rawOrderId = (params?.orderId as string) || "HD102";
-  const orderId = rawOrderId.toUpperCase();
+
+  // Bóc tách an toàn tuyệt đối tránh lỗi undefined khi SSR
+  const rawParam = Array.isArray(params?.orderId)
+    ? params.orderId[0]
+    : params?.orderId;
+
+  const orderId = String(rawParam || "HD102").toUpperCase();
 
   const [isPaid, setIsPaid] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -25,13 +30,12 @@ export default function CheckoutPage() {
     bankInfo.accountName
   )}`;
 
-  // Polling hỏi Server API mỗi 2 giây
   useEffect(() => {
-    if (isPaid) return;
+    if (isPaid || !orderId) return;
 
     const checkStatus = async () => {
       try {
-        const res = await fetch(`/api/orders/status?orderId=${orderId}`);
+        const res = await fetch(`/api/orders/status?orderId=${encodeURIComponent(orderId)}`);
         const data = await res.json();
 
         if (data.order?.amount) {
@@ -57,7 +61,6 @@ export default function CheckoutPage() {
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  // Nút giả lập gạch nợ ngay lập tức để test giao diện
   const handleSimulatePayment = async () => {
     setSimulating(true);
     try {
@@ -82,11 +85,6 @@ export default function CheckoutPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 md:p-8 font-sans">
       <div className="max-w-xl w-full bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden">
-        {/* Glow Effects */}
-        <div className="absolute -top-24 -left-24 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        {/* Header */}
         <div className="text-center mb-8 relative z-10">
           <span className="inline-flex items-center gap-1.5 bg-emerald-500/10 text-emerald-400 text-xs font-semibold px-3 py-1 rounded-full border border-emerald-500/20 mb-3">
             <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
@@ -98,7 +96,6 @@ export default function CheckoutPage() {
         </div>
 
         {isPaid ? (
-          /* MÀN HÌNH THÀNH CÔNG (SUCCESS CARD) */
           <div className="bg-emerald-950/40 border border-emerald-500/40 rounded-2xl p-8 text-center space-y-6 animate-fade-in relative z-10 shadow-xl shadow-emerald-500/10">
             <div className="w-20 h-20 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-4xl font-extrabold shadow-lg shadow-emerald-500/20 border border-emerald-500/50 animate-bounce">
               ✓
@@ -123,10 +120,6 @@ export default function CheckoutPage() {
                   Đã gạch nợ (Paid)
                 </span>
               </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Thông báo Zalo:</span>
-                <span className="text-slate-200">Đã gửi tin nhắn (Mock/OA)</span>
-              </div>
             </div>
 
             <button
@@ -137,16 +130,13 @@ export default function CheckoutPage() {
             </button>
           </div>
         ) : (
-          /* MÀN HÌNH QUÉT MÃ VIETQR */
           <div className="space-y-6 relative z-10">
             <div className="bg-slate-950/60 border border-slate-800 p-5 rounded-2xl flex flex-col md:flex-row items-center gap-6">
-              <div className="relative">
-                <img
-                  src={qrUrl}
-                  alt="VietQR MBBank"
-                  className="w-56 h-56 rounded-xl border border-slate-700 bg-white p-2 shadow-md"
-                />
-              </div>
+              <img
+                src={qrUrl}
+                alt="VietQR MBBank"
+                className="w-56 h-56 rounded-xl border border-slate-700 bg-white p-2 shadow-md"
+              />
 
               <div className="flex-1 space-y-3.5 w-full text-sm">
                 <div>
@@ -173,7 +163,7 @@ export default function CheckoutPage() {
                 </div>
 
                 <div>
-                  <span className="text-slate-400 text-xs block">Nội dung chuyển khoản (Bắt buộc)</span>
+                  <span className="text-slate-400 text-xs block">Nội dung chuyển khoản</span>
                   <div className="flex items-center justify-between bg-slate-900 p-2.5 rounded-xl border border-emerald-500/40 mt-1">
                     <span className="font-mono font-bold text-emerald-400 text-base">{bankInfo.content}</span>
                     <button
@@ -187,16 +177,12 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            {/* Trạng thái chờ */}
             <div className="flex flex-col items-center justify-center gap-3 bg-slate-900/80 p-4 rounded-xl border border-slate-800/80 text-center">
               <div className="flex items-center gap-2">
                 <div className="w-2.5 h-2.5 bg-emerald-400 rounded-full animate-ping" />
-                <p className="text-xs text-slate-300">
-                  Hệ thống đang kiểm tra giao dịch tự động...
-                </p>
+                <p className="text-xs text-slate-300">Hệ thống đang kiểm tra giao dịch tự động...</p>
               </div>
 
-              {/* NÚT TEST GIẢ LẬP THANH TOÁN */}
               <button
                 onClick={handleSimulatePayment}
                 disabled={simulating}

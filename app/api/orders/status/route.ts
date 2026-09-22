@@ -6,20 +6,27 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const orderId = searchParams.get("orderId")?.trim().toUpperCase();
+    const rawOrderId = searchParams.get("orderId");
 
-    if (!orderId) {
+    // Xử lý an toàn nếu tham số rỗng
+    if (!rawOrderId || rawOrderId.trim() === "") {
       return NextResponse.json(
         { paid: false, status: "pending", error: "Missing orderId" },
-        { status: 400 }
+        { status: 200 }
       );
     }
+
+    const orderId = rawOrderId.trim().toUpperCase();
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
     const supabaseKey =
       process.env.SUPABASE_SERVICE_ROLE_KEY ||
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
       "";
+
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json({ paid: false, status: "pending" }, { status: 200 });
+    }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -39,7 +46,7 @@ export async function GET(request: Request) {
     const { data: order } = await supabase
       .from("orders")
       .select("order_id, amount, status, phone, created_at")
-      .eq("order_id", orderId)
+      .or(`order_id.eq.${orderId},order_id.eq.HD${orderId}`)
       .maybeSingle();
 
     if (order) {
@@ -47,21 +54,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ paid: isPaid, status: order.status, order });
     }
 
-    // 3. Kiểm tra bảng 'saas_subscriptions'
-    const { data: sub } = await supabase
-      .from("saas_subscriptions")
-      .select("order_id, amount, status, created_at")
-      .eq("order_id", orderId)
-      .maybeSingle();
-
-    if (sub) {
-      const isPaid = sub.status === "paid" || sub.status === "success";
-      return NextResponse.json({ paid: isPaid, status: sub.status, order: sub });
-    }
-
     return NextResponse.json({ paid: false, status: "pending" });
   } catch (error) {
     console.error("❌ [STATUS API ERROR]:", error);
-    return NextResponse.json({ paid: false, status: "pending" });
+    return NextResponse.json({ paid: false, status: "pending" }, { status: 200 });
   }
 }
