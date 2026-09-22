@@ -25,7 +25,7 @@ export async function createClient() {
             cookieStore.set(name, value, options)
           );
         } catch {
-          // Bỏ qua khi gọi từ Server Component
+          // Bỏ qua trong Server Components
         }
       },
     },

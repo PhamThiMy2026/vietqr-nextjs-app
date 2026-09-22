@@ -2,7 +2,7 @@ export async function sendZaloMessage(phone: string, message: string) {
   try {
     const zaloAccessToken = process.env.ZALO_OA_ACCESS_TOKEN;
     if (!zaloAccessToken) {
-      console.log("⚠️ Chưa cấu hình ZALO_OA_ACCESS_TOKEN. Bỏ qua gửi Zalo.");
+      console.log("⚠️ [ZALO] Chưa cấu hình ZALO_OA_ACCESS_TOKEN. Bỏ qua gửi tin nhắn.");
       return false;
     }
 
@@ -27,7 +27,7 @@ export async function sendZaloMessage(phone: string, message: string) {
     console.log(`💬 [ZALO SENT] SĐT: ${formattedPhone} | Kết quả:`, result);
     return result?.error === 0;
   } catch (error) {
-    console.error("❌ Lỗi khi gửi tin nhắn Zalo:", error);
+    console.error("❌ [ZALO ERROR]:", error);
     return false;
   }
 }

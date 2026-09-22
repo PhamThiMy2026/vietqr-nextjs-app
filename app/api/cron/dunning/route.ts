@@ -30,39 +30,38 @@ export async function GET(request: Request) {
     const oneDayAgo = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString();
     const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Quét các đơn pending/unpaid quá hạn 1-3 ngày
-    const { data: pendingOrders } = await supabase
-      .from("orders")
+    const { data: pendingInvoices } = await supabase
+      .from("invoices")
       .select("*")
-      .or("status.eq.pending,status.eq.unpaid")
+      .eq("status", "pending")
       .gte("created_at", threeDaysAgo)
       .lte("created_at", oneDayAgo);
 
     let sentCount = 0;
 
-    for (const order of pendingOrders || []) {
-      if (!order.phone) continue;
+    for (const inv of pendingInvoices || []) {
+      if (!inv.customer_phone) continue;
 
       const bankId = "MB";
       const accountNo = "0373695296";
       const accountName = "PHAM THI MY";
 
-      const vietQrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${order.amount}&addInfo=${order.order_id}&accountName=${encodeURIComponent(
+      const vietQrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${inv.amount}&addInfo=${inv.invoice_id}&accountName=${encodeURIComponent(
         accountName
       )}`;
 
-      const reminderMsg = `🔔 [NHẮC THÁNH TOÁN]: Đơn hàng #${order.order_id} trị giá ${Number(
-        order.amount
-      ).toLocaleString("vi-VN")} VNĐ của bạn đang chờ hoàn tất.
-Quét mã VietQR nhanh tại link sau để giữ ưu đãi: ${vietQrUrl}`;
+      const reminderMsg = `🔔 [NHẮC THÁNH TOÁN]: Hóa đơn #${inv.invoice_id} trị giá ${Number(
+        inv.amount
+      ).toLocaleString("vi-VN")} VNĐ của bạn vẫn đang chờ thanh toán.
+Bạn có thể quét mã VietQR nhanh tại đường link sau: ${vietQrUrl}`;
 
-      const isSuccess = await sendZaloMessage(order.phone, reminderMsg);
+      const isSuccess = await sendZaloMessage(inv.customer_phone, reminderMsg);
       if (isSuccess) sentCount++;
     }
 
     return NextResponse.json({
       success: true,
-      message: `Đã gửi ${sentCount}/${pendingOrders?.length || 0} tin nhắn Zalo nhắc nợ.`,
+      message: `Đã gửi thành công ${sentCount} tin nhắn Zalo nhắc nợ.`,
     });
   } catch (error: unknown) {
     const errMessage = error instanceof Error ? error.message : String(error);
