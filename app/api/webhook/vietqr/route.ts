@@ -6,19 +6,20 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
-    let body: any = {};
+    let body: Record<string, unknown> | Array<unknown> = {};
     try {
       body = await request.json();
     } catch {
       return NextResponse.json({ success: false, message: "Invalid JSON" }, { status: 200 });
     }
 
-    // Fix bóc tách mảng Array chính xác
-    let transaction = body;
+    let transaction: Record<string, unknown> = {};
     if (Array.isArray(body) && body.length > 0) {
-      transaction = body[0];
-    } else if (body && Array.isArray(body.data) && body.data.length > 0) {
-      transaction = body.data[0];
+      transaction = (body[0] as Record<string, unknown>) || {};
+    } else if (body && typeof body === "object" && "data" in body && Array.isArray(body.data) && body.data.length > 0) {
+      transaction = (body.data[0] as Record<string, unknown>) || {};
+    } else if (body && typeof body === "object") {
+      transaction = body as Record<string, unknown>;
     }
 
     const amount = Number(
@@ -39,9 +40,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Empty content" }, { status: 200 });
     }
 
-    // Tách mã đơn hàng an toàn
+    // Lấy phần tử mảng match[0] an toàn chuẩn TypeScript
     const match = rawContent.match(/(HD|DH|ORDER|INV|SUBBASIC|SUBPRO)[A-Z0-9]*/i);
-    const orderId = match ? match[0].toUpperCase() : rawContent.toUpperCase();
+    const orderId = match && match[0] ? match[0].toUpperCase() : rawContent.toUpperCase();
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
     const supabaseKey =
@@ -84,8 +85,9 @@ export async function POST(request: Request) {
       message: `Gạch nợ tự động thành công cho đơn #${orderId}`,
     }, { status: 200 });
 
-  } catch (error: any) {
-    console.error("❌ [WEBHOOK ERROR]:", error?.message || error);
-    return NextResponse.json({ success: false, error: String(error) }, { status: 200 });
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : String(error);
+    console.error("❌ [WEBHOOK ERROR]:", errMessage);
+    return NextResponse.json({ success: false, error: errMessage }, { status: 200 });
   }
 }

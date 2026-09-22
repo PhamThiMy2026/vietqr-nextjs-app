@@ -3,25 +3,19 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
-export const dynamic = "force-dynamic";
+export default function CheckoutPage() {
+  const params = useParams();
 
-export default function CheckoutPage({
-  params: propParams,
-}: {
-  params?: { orderId?: string };
-}) {
-  const routeParams = useParams();
-
-  // Bóc tách an toàn tuyệt đối tránh lỗi undefined khi SSR hoặc Build
-  const rawParam = routeParams?.orderId || propParams?.orderId || "HD102";
+  // Bóc tách mảng/chuỗi an toàn cho TypeScript
+  const rawParam = params?.orderId || "HD102";
   const orderId = (
-    Array.isArray(rawParam) ? rawParam[0] : String(rawParam || "HD102")
+    Array.isArray(rawParam) ? rawParam[0] : String(rawParam)
   ).toUpperCase();
 
-  const [isPaid, setIsPaid] = useState(false);
+  const [isPaid, setIsPaid] = useState<boolean>(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [amount, setAmount] = useState<number>(199000);
-  const [simulating, setSimulating] = useState(false);
+  const [simulating, setSimulating] = useState<boolean>(false);
 
   const bankInfo = {
     bankId: "MB",
