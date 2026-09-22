@@ -3,14 +3,20 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
-export default function CheckoutPage() {
-  const params = useParams();
+export const dynamic = "force-dynamic";
 
-  // Ép kiểu String an toàn và fallback về 'HD102' nếu params/orderId bị undefined
-  const rawOrderId = Array.isArray(params?.orderId)
-    ? params.orderId[0]
-    : params?.orderId;
-  const orderId = String(rawOrderId || "HD102").toUpperCase();
+export default function CheckoutPage({
+  params: propParams,
+}: {
+  params?: { orderId?: string };
+}) {
+  const routeParams = useParams();
+
+  // Bóc tách an toàn tuyệt đối tránh lỗi undefined khi SSR hoặc Build
+  const rawParam = routeParams?.orderId || propParams?.orderId || "HD102";
+  const orderId = (
+    Array.isArray(rawParam) ? rawParam[0] : String(rawParam || "HD102")
+  ).toUpperCase();
 
   const [isPaid, setIsPaid] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -34,7 +40,10 @@ export default function CheckoutPage() {
 
     const checkStatus = async () => {
       try {
-        const res = await fetch(`/api/orders/status?orderId=${encodeURIComponent(orderId)}`);
+        const res = await fetch(
+          `/api/orders/status?orderId=${encodeURIComponent(orderId)}`
+        );
+        if (!res.ok) return;
         const data = await res.json();
 
         if (data.order?.amount) {
@@ -104,7 +113,7 @@ export default function CheckoutPage() {
                 Thanh Toán Thành Công!
               </h2>
               <p className="text-slate-300 text-sm">
-                Đơn hàng <span className="font-mono font-bold text-white">#{orderId}</span> đã được hệ thống gạch nợ tự động.
+                Đơn hàng <span className="font-mono font-bold text-white">#{orderId}</span> đã được gạch nợ tự động thành công.
               </p>
             </div>
 

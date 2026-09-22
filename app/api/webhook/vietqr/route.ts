@@ -13,6 +13,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Invalid JSON" }, { status: 200 });
     }
 
+    // Fix bóc tách mảng Array chính xác
     let transaction = body;
     if (Array.isArray(body) && body.length > 0) {
       transaction = body[0];
@@ -38,11 +39,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Empty content" }, { status: 200 });
     }
 
-    // Kiểm tra an toàn kết quả match trước khi gọi toUpperCase()
-    const orderMatch = rawContent.match(/(HD|DH|ORDER|INV|SUB_?BASIC|SUB_?PRO)_?([A-Z0-9]+)/i);
-    const orderId = (orderMatch && orderMatch[0])
-      ? String(orderMatch[0]).toUpperCase().replace(/_/g, "")
-      : String(rawContent).toUpperCase();
+    // Tách mã đơn hàng an toàn
+    const match = rawContent.match(/(HD|DH|ORDER|INV|SUBBASIC|SUBPRO)[A-Z0-9]*/i);
+    const orderId = match ? match[0].toUpperCase() : rawContent.toUpperCase();
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
     const supabaseKey =
@@ -56,7 +55,7 @@ export async function POST(request: Request) {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Cập nhật CSDL
+    // Cập nhật CSDL Supabase
     await supabase.from("invoices").upsert({
       invoice_id: orderId,
       amount: amount,
@@ -70,6 +69,13 @@ export async function POST(request: Request) {
       phone: "0373695296",
       status: "paid",
     }, { onConflict: "order_id" });
+
+    await supabase.from("transactions").insert({
+      order_id: orderId,
+      amount: amount,
+      content: rawContent,
+      status: "paid",
+    });
 
     await sendZaloMessage("0373695296", `Cảm ơn bạn! Đơn hàng #${orderId} đã được thanh toán thành công.`);
 

@@ -50,7 +50,19 @@ export async function GET(request: Request) {
       return NextResponse.json({ paid: isPaid, status: order.status, order });
     }
 
-    return NextResponse.json({ paid: false, status: "pending" });
+    // 3. Kiểm tra bảng 'saas_subscriptions'
+    const { data: sub } = await supabase
+      .from("saas_subscriptions")
+      .select("order_id, amount, status, created_at")
+      .eq("order_id", orderId)
+      .maybeSingle();
+
+    if (sub) {
+      const isPaid = sub.status === "paid" || sub.status === "success";
+      return NextResponse.json({ paid: isPaid, status: sub.status, order: sub });
+    }
+
+    return NextResponse.json({ paid: false, status: "pending" }, { status: 200 });
   } catch (error) {
     console.error("❌ [STATUS API ERROR]:", error);
     return NextResponse.json({ paid: false, status: "pending" }, { status: 200 });
