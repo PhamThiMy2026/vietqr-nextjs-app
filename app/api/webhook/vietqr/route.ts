@@ -38,11 +38,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Empty content" }, { status: 200 });
     }
 
-    // Tách mã đơn hàng an toàn (Lấy orderMatch[0] là chuỗi khớp)
+    // Kiểm tra an toàn kết quả match trước khi gọi toUpperCase()
     const orderMatch = rawContent.match(/(HD|DH|ORDER|INV|SUB_?BASIC|SUB_?PRO)_?([A-Z0-9]+)/i);
-    const orderId = orderMatch && orderMatch[0] 
-      ? orderMatch[0].toUpperCase().replace(/_/g, "") 
-      : rawContent.toUpperCase();
+    const orderId = (orderMatch && orderMatch[0])
+      ? String(orderMatch[0]).toUpperCase().replace(/_/g, "")
+      : String(rawContent).toUpperCase();
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
     const supabaseKey =
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Cập nhật trạng thái paid
+    // Cập nhật CSDL
     await supabase.from("invoices").upsert({
       invoice_id: orderId,
       amount: amount,

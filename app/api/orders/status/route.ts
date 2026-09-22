@@ -8,15 +8,11 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const rawOrderId = searchParams.get("orderId");
 
-    // Xử lý an toàn nếu tham số rỗng
-    if (!rawOrderId || rawOrderId.trim() === "") {
-      return NextResponse.json(
-        { paid: false, status: "pending", error: "Missing orderId" },
-        { status: 200 }
-      );
+    if (!rawOrderId || String(rawOrderId).trim() === "") {
+      return NextResponse.json({ paid: false, status: "pending" }, { status: 200 });
     }
 
-    const orderId = rawOrderId.trim().toUpperCase();
+    const orderId = String(rawOrderId).trim().toUpperCase();
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
     const supabaseKey =

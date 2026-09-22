@@ -6,12 +6,11 @@ import { useParams } from "next/navigation";
 export default function CheckoutPage() {
   const params = useParams();
 
-  // Bóc tách an toàn tuyệt đối tránh lỗi undefined khi SSR
-  const rawParam = Array.isArray(params?.orderId)
+  // Ép kiểu String an toàn và fallback về 'HD102' nếu params/orderId bị undefined
+  const rawOrderId = Array.isArray(params?.orderId)
     ? params.orderId[0]
     : params?.orderId;
-
-  const orderId = String(rawParam || "HD102").toUpperCase();
+  const orderId = String(rawOrderId || "HD102").toUpperCase();
 
   const [isPaid, setIsPaid] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
