@@ -1,103 +1,102 @@
 "use client";
 
-import { use, useEffect, useState, useMemo } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { CheckCircle2, Loader2 } from "lucide-react";
-
-// Cấu hình thông tin ngân hàng nhận tiền
-const BANK_CONFIG = {
-  BANK_ID: "MB", // Tên viết tắt ngân hàng (MB, VCB, ICB, TCB, ACB, ...)
-  ACCOUNT_NO: "0373695296", // Số tài khoản ngân hàng
-  ACCOUNT_NAME: "PHAM THI MY", // Tên chủ tài khoản
-};
+import { useEffect, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 
 export default function CheckoutPage({
   params,
 }: {
-  params: Promise<{ orderId: string }>;
+  params: { orderId: string };
 }) {
-  const { orderId } = use(params);
-  const amount = 100000;
-  const [isPaid, setIsPaid] = useState(false);
+  const [status, setStatus] = useState<"pending" | "paid" | "loading">("loading");
+  const [orderDetails, setOrderDetails] = useState<{
+    amount?: number;
+    order_id?: string;
+  } | null>(null);
 
-  // Cố định đối tượng Supabase client bằng useMemo
-  const supabase = useMemo(() => createClient(), []);
-
-  // Tạo URL mã QR VietQR chuẩn
-  const qrUrl = `https://img.vietqr.io/image/${BANK_CONFIG.BANK_ID}-${BANK_CONFIG.ACCOUNT_NO}-compact2.png?amount=${amount}&addInfo=${orderId}&accountName=${encodeURIComponent(BANK_CONFIG.ACCOUNT_NAME)}`;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
   useEffect(() => {
-    // Lắng nghe giao dịch Realtime từ Supabase cho đơn hàng này
-    const channel = supabase
-      .channel(`order-${orderId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "transactions",
-          filter: `order_id=eq.${orderId}`,
-        },
-        (payload) => {
-          if (payload.new && payload.new.amount >= amount) {
-            setIsPaid(true);
-          }
-        }
-      )
-      .subscribe();
+    if (!supabaseUrl || !supabaseKey) return;
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    return () => {
-      supabase.removeChannel(channel);
+    const fetchOrder = async () => {
+      const { data } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("order_id", params.orderId)
+        .maybeSingle();
+
+      if (data) {
+        setOrderDetails(data);
+        setStatus(data.status === "paid" || data.status === "success" ? "paid" : "pending");
+      } else {
+        setStatus("pending");
+      }
     };
-  }, [orderId, amount, supabase]);
+
+    fetchOrder();
+
+    // Hỏi vòng Database mỗi 3 giây
+    const interval = setInterval(async () => {
+      if (status === "paid") {
+        clearInterval(interval);
+        return;
+      }
+
+      const { data } = await supabase
+        .from("orders")
+        .select("status")
+        .eq("order_id", params.orderId)
+        .maybeSingle();
+
+      if (data?.status === "paid" || data?.status === "success") {
+        setStatus("paid");
+        clearInterval(interval);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [params.orderId, status, supabaseUrl, supabaseKey]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="max-w-md w-full bg-card p-6 rounded-xl border shadow-lg text-center flex flex-col items-center gap-6">
-        {!isPaid ? (
-          <>
-            <div>
-              <h1 className="text-2xl font-bold">Thanh toán đơn hàng</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Mã đơn: <span className="font-semibold text-primary">{orderId}</span>
-              </p>
-            </div>
+    <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-6">
+      <div className="bg-slate-800 border border-slate-700 p-8 rounded-2xl max-w-md w-full text-center space-y-6 shadow-2xl">
+        <h1 className="text-xl font-bold border-b border-slate-700 pb-4">
+          Thanh Toán Đơn Hàng #{params.orderId}
+        </h1>
 
-            {/* Mã QR VietQR */}
-            <div className="relative w-64 h-64 border p-2 rounded-lg bg-white">
-              <img
-                src={qrUrl}
-                alt="Mã VietQR Thanh Toán"
-                className="w-full h-full object-contain"
-              />
+        {status === "paid" ? (
+          <div className="space-y-4">
+            <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-3xl font-bold">
+              ✓
             </div>
-
-            <div className="w-full bg-muted p-4 rounded-lg text-left text-sm space-y-1">
-              <p>
-                Số tiền:{" "}
-                <strong className="text-green-600">
-                  {amount.toLocaleString("vi-VN")} VNĐ
-                </strong>
-              </p>
-              <p>
-                Nội dung chuyển khoản:{" "}
-                <strong className="text-blue-600">{orderId}</strong>
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 text-amber-600 text-sm font-medium">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Đang chờ hệ thống ghi nhận chuyển khoản...
-            </div>
-          </>
-        ) : (
-          <div className="py-8 flex flex-col items-center gap-4">
-            <CheckCircle2 className="w-16 h-16 text-green-500 animate-bounce" />
-            <h2 className="text-2xl font-bold text-green-600">
-              Thanh toán thành công!
+            <h2 className="text-2xl font-bold text-emerald-400">
+              Thanh Toán Thành Công!
             </h2>
-            <p className="text-sm text-muted-foreground">
-              Hệ thống đã xác nhận đơn hàng <strong>{orderId}</strong>. Cảm ơn bạn!
+            <p className="text-slate-300 text-sm">
+              Đơn hàng <span className="font-mono font-bold text-white">#{params.orderId}</span> đã được gạch nợ tự động.
+            </p>
+            {orderDetails?.amount && (
+              <div className="bg-slate-900/60 p-3 rounded-lg text-sm text-slate-400">
+                Số tiền:{" "}
+                <span className="text-emerald-400 font-bold">
+                  {Number(orderDetails.amount).toLocaleString("vi-VN")} VNĐ
+                </span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-500"></div>
+            <h2 className="text-lg font-semibold text-slate-200">
+              Đang Chờ Thanh Toán VietQR...
+            </h2>
+            <p className="text-slate-400 text-xs leading-relaxed">
+              Vui lòng dùng App ngân hàng quét mã VietQR.
+              <br />
+              Màn hình sẽ <b>tự động chuyển trạng thái</b> trong vòng 3 giây ngay khi nhận được tiền!
             </p>
           </div>
         )}

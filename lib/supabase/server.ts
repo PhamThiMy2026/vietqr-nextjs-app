@@ -1,18 +1,17 @@
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
 export async function createClient() {
   const cookieStore = await cookies();
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const supabaseKey =
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    "";
 
   if (!supabaseUrl || !supabaseKey) {
-    throw new Error(
-      "❌ Thiếu NEXT_PUBLIC_SUPABASE_URL hoặc Key trong file .env.local!"
-    );
+    throw new Error("Missing Supabase URL or Key in environment variables!");
   }
 
   return createServerClient(supabaseUrl, supabaseKey, {
@@ -26,7 +25,7 @@ export async function createClient() {
             cookieStore.set(name, value, options)
           );
         } catch {
-          // Bỏ qua nếu được gọi từ Server Component
+          // Bỏ qua khi gọi từ Server Component
         }
       },
     },

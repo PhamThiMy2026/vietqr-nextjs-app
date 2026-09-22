@@ -1,7 +1,6 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  /* Xóa bỏ hoặc bỏ dòng output: 'export' tại đây */
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  // Loại bỏ hoàn toàn cacheComponents để tương thích với export const dynamic = 'force-dynamic'
 };
 
-export default nextConfig;
+module.exports = nextConfig;

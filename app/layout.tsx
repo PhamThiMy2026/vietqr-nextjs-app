@@ -1,27 +1,15 @@
-import { Geist } from "next/font/google";
-import { ThemeProvider } from "@/components/theme-provider"; // 👈 Import từ file vừa tạo
-import "./globals.css";
-
-const geistSans = Geist({
-  subsets: ["latin"],
-});
+import Script from "next/script";
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.className} antialiased`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
+    <html lang="vi" suppressHydrationWarning>
+      <body>
+        {children}
+        <Script src="https://example.com/analytics.js" strategy="afterInteractive" />
       </body>
     </html>
   );
