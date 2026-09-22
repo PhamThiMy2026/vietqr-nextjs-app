@@ -1,78 +1,59 @@
-// app/page.tsx
 import Link from "next/link";
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-slate-900 text-white flex flex-col justify-between p-6 md:p-12">
-      {/* Header / Navbar */}
-      <header className="max-w-6xl mx-auto w-full flex justify-between items-center py-4 border-b border-slate-800">
-        <div className="text-xl font-bold tracking-wider text-emerald-400">
-          VietQR AutoPay
-        </div>
-        <Link
-          href="/checkout/DH1001"
-          className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-semibold px-4 py-2 rounded-lg transition"
-        >
-          Thử nghiệm Demo
-        </Link>
-      </header>
+    <main className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
+      {/* Background Ambient Glows */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-10 right-10 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Hero Section */}
-      <section className="max-w-4xl mx-auto text-center my-16 space-y-6">
-        <div className="inline-block bg-emerald-500/10 text-emerald-400 text-sm font-medium px-4 py-1.5 rounded-full border border-emerald-500/20">
-          ⚡ Giải pháp Tự động hóa Thanh toán VietQR & Zalo 24/7
-        </div>
+      <div className="max-w-3xl w-full text-center space-y-6 relative z-10">
+        <span className="inline-flex items-center gap-2 bg-emerald-500/10 text-emerald-400 text-xs font-semibold px-4 py-1.5 rounded-full border border-emerald-500/20">
+          <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+          Nền Tảng Micro-SaaS VietQR & Zalo Automation
+        </span>
 
-        <h1 className="text-3xl md:text-5xl font-extrabold leading-tight text-slate-100">
-          Tự động xác nhận chuyển khoản VietQR & Bắn tin nhắn Zalo cho khách trong{" "}
-          <span className="text-emerald-400">3 giây</span>
+        <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-tight">
+          Tự Động Đối Soát VietQR <br />
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
+            & Gửi Tin Nhắn Zalo 3s
+          </span>
         </h1>
 
-        <p className="text-lg text-slate-400 max-w-2xl mx-auto">
-          Không lo đọng vốn, không mất công tra sao kê thủ công. Giảm 99% thời gian xử lý đơn hàng và tự động hóa kịch bản chăm sóc/nhắc nợ qua Zalo.
+        <p className="text-slate-400 text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
+          Tự động nhận diện nội dung chuyển khoản, gạch nợ CSDL Supabase tức thì và tự động gửi tin nhắn Zalo cảm ơn hoặc nhắc nợ lịch sự.
         </p>
 
-        <div className="pt-4 flex flex-col sm:flex-row justify-center gap-4">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
           <Link
-            href="/checkout/DH1001"
-            className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-lg px-8 py-3.5 rounded-xl transition shadow-lg shadow-emerald-500/20"
+            href="/pricing"
+            className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-8 py-3.5 rounded-xl transition shadow-lg shadow-emerald-500/20 text-center"
           >
-            Tạo đơn hàng & Test thử ngay 🚀
+            Xem Bảng Giá SaaS 🚀
+          </Link>
+          <Link
+            href="/checkout/HD102"
+            className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-semibold px-8 py-3.5 rounded-xl transition text-center"
+          >
+            Demo Màn Hình Checkout (HD102) 💳
           </Link>
         </div>
-      </section>
 
-      {/* Feature Grid */}
-      <section className="max-w-5xl mx-auto grid md:grid-cols-3 gap-6 my-12">
-        <div className="bg-slate-800/50 border border-slate-700/50 p-6 rounded-2xl">
-          <div className="text-3xl mb-3">📲</div>
-          <h3 className="text-xl font-semibold mb-2">VietQR Động</h3>
-          <p className="text-slate-400 text-sm">
-            Tự động khởi tạo mã QR chuyển khoản chính xác tới từng xu, tự điền nội dung đơn hàng.
-          </p>
+        <div className="pt-12 grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
+          <div className="bg-slate-900/60 border border-slate-800 p-5 rounded-2xl">
+            <div className="text-emerald-400 font-bold text-lg mb-1">⚡ 3 Giây Gạch Nợ</div>
+            <p className="text-xs text-slate-400">Tự động nhận Webhook từ SePay/Casso và cập nhật trạng thái đơn 'paid' tức thì.</p>
+          </div>
+          <div className="bg-slate-900/60 border border-slate-800 p-5 rounded-2xl">
+            <div className="text-blue-400 font-bold text-lg mb-1">🤖 Zalo Giả Lập / OA</div>
+            <p className="text-xs text-slate-400">Gửi tin nhắn Zalo xác nhận đơn hàng hoặc nhắc nợ tự động lúc 9h sáng.</p>
+          </div>
+          <div className="bg-slate-900/60 border border-slate-800 p-5 rounded-2xl">
+            <div className="text-purple-400 font-bold text-lg mb-1">🛡️ Khắc Phục RLS</div>
+            <p className="text-xs text-slate-400">Kết nối Supabase SSR qua Server API, khắc phục hoàn toàn lỗi đứng màn hình Checkout.</p>
+          </div>
         </div>
-
-        <div className="bg-slate-800/50 border border-slate-700/50 p-6 rounded-2xl">
-          <div className="text-3xl mb-3">⚡</div>
-          <h3 className="text-xl font-semibold mb-2">Webhook Khóa Đơn 3s</h3>
-          <p className="text-slate-400 text-sm">
-            Xác thực thanh toán tức thì qua SePay / Casso, gạch nợ tự động trên Supabase Realtime.
-          </p>
-        </div>
-
-        <div className="bg-slate-800/50 border border-slate-700/50 p-6 rounded-2xl">
-          <div className="text-3xl mb-3">💬</div>
-          <h3 className="text-xl font-semibold mb-2">Tự động hóa Zalo</h3>
-          <p className="text-slate-400 text-sm">
-            Bắn tin nhắn xác nhận tức thì và tự động kích hoạt kịch bản nhắc nợ (Dunning Cron Job) 9:00 sáng.
-          </p>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="max-w-6xl mx-auto w-full text-center py-6 text-slate-500 text-sm border-t border-slate-800">
-        © 2026 VietQR AutoPay Solution. Powered by Next.js & Vercel.
-      </footer>
+      </div>
     </main>
   );
 }
